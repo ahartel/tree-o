@@ -19,27 +19,13 @@ import PIL.Image
 import json
 import os
 import argparse
+import mkblob
 
 
 def print_file(arg, dirname, names):
     print(dirname)
     for name in names:
         print(" {0}".format(name))
-
-
-def make_blob(obj):
-    """Generate a hash from the file's properties."""
-    ext = os.path.splitext(obj.name)[1]
-    if ext in ['.jpg', '.jpeg','.png','.cr2']:
-        img = PIL.Image.open(obj.path)
-        exif_data = img._getexif()
-        #print(exif_data)
-        #print(obj.stat().st_size)
-        metadata = {'size': obj.stat().st_size,
-                    'date': exif_data}
-        return hashlib.sha256(json.dumps(metadata).encode('utf-8')).hexdigest()
-    else:
-        raise Exception('not a known image format')
 
 
 def scan_tree(root):
@@ -51,7 +37,7 @@ def scan_tree(root):
             children[obj.name] = scan_tree(obj.path)
         else:
             try:
-                children[obj.name] = make_blob(obj)
+                children[obj.name] = mkblob.photo_size_date(obj)
             except Exception as e:
                 pass
     print(root,children)
