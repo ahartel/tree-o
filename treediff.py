@@ -1,9 +1,21 @@
 import os
+import sys
 import argparse
 import mkblob
 import pprint
 import hashlib
 import json
+
+
+class Colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 
 def scan_tree(tree_root, make_blob):
@@ -29,10 +41,28 @@ def scan_tree(tree_root, make_blob):
             'content': content_subtree}
 
 
-def compare_trees(a_tree, b_tree, level=0):
+class Table:
+    def __init__(self):
+        self.max_name_column_width = 0
+        self.max_indentation = 0
+        self.rows = []
+        self.max_a_column_width = 0
 
-    indentation = "".join([" " for _ in range(level)])
+    def append(self, tpl):
+        if len(tpl[1])+tpl[0] > self.max_name_column_width:
+            self.max_name_column_width = len(tpl[1]) + tpl[0]
+        if tpl[0] > self.max_indentation:
+            self.max_indentation = tpl[0]
+        if len(tpl[4]) > self.max_a_column_width:
+            self.max_a_column_width = len(tpl[4])
+        self.rows.append(tpl)
 
+    def get_rows(self):
+        return self.rows
+
+
+def compare_trees(a_tree, b_tree, table, level=0):
+    """"Spits out a list of tuples (Level, Name, Type, match, a, b)"""
     both = []
     a_only = []
     b_only = []
@@ -50,20 +80,40 @@ def compare_trees(a_tree, b_tree, level=0):
 
     for node in both:
         if node[1] is True:
-            print("{0}{1}\t{2}\t{3}".format(indentation, node[0], '✓', '✓'))
+            table.append((level, node[0], a_tree[node[0]]['type'], True, '✓', '✓'))
         elif a_tree[node[0]]['type'] == 'd':
-            print("{0}Entering {1}".format(indentation, node[0]))
-            compare_trees(a_tree[node[0]]['content'], b_tree[node[0]]['content'], level + 1)
+            # print("{0}Entering {1}".format(indentation, node[0]))
+            table.append((level, node[0], a_tree[node[0]]['type'], False,
+                          str(a_tree[node[0]]['hash'])[0:8],
+                          str(b_tree[node[0]]['hash'])[0:8]))
+            compare_trees(a_tree[node[0]]['content'], b_tree[node[0]]['content'], table, level + 1)
         elif a_tree[node[0]]['type'] == 'f':
-            print("{0}{1}\t{2}\t{3}".format(indentation,
-                                            node[0],
-                                            a_tree[node[0]]['content'],
-                                            b_tree[node[0]]['content']))
-
+            table.append((level, node[0], a_tree[node[0]]['type'], False,
+                          str(a_tree[node[0]]['content']),
+                          str(b_tree[node[0]]['content'])))
     for node in a_only:
-        print("{0}{1}\t{2}\t{3}".format(indentation, node, a_tree[node]['hash'], 'X'))
+        table.append((level, node, a_tree[node]['type'], False, str(a_tree[node]['hash'])[0:8], 'X'))
     for node in b_only:
-        print("{0}{1}\t{2}\t{3}".format(indentation, node, 'X', b_tree[node]['hash']))
+        table.append((level, node, b_tree[node]['type'], False, 'X', str(b_tree[node]['hash'])[0:8]))
+
+    return table
+
+
+def print_table(table):
+    indentation = ["".join([" " for _ in range(ind)]) for ind in range(table.max_name_column_width+1)]
+
+    for row in table.get_rows():
+        name_spacing = table.max_name_column_width-len(row[1])-row[0]
+        a_spacing = table.max_a_column_width-len(row[4])+1
+        if row[3]:
+            sys.stdout.write(Colors.OKGREEN)
+        else:
+            sys.stdout.write(Colors.FAIL)
+        if row[2] == 'd':
+            sys.stdout.write(Colors.OKBLUE)
+
+        print("{0}{1}{2}{3}{4}{5}".format(indentation[row[0]], row[1],
+                                          indentation[name_spacing], row[4], indentation[a_spacing], row[5]))
 
 
 if __name__ == '__main__':
@@ -82,4 +132,5 @@ if __name__ == '__main__':
     if atree['hash'] == btree['hash']:
         print("Trees match")
     else:
-        compare_trees(atree['content'], btree['content'])
+        tab = Table()
+        print_table(compare_trees(atree['content'], btree['content'], tab))
