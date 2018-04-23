@@ -5,6 +5,6 @@ Currently, this tool does only compare the trees. In a next step it will also al
 commands.
 
 To diff two trees run
-```
+```bash
 python treediff.py <dir-a> <dir-b>
 ```

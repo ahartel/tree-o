@@ -18,14 +18,14 @@ class Colors:
     UNDERLINE = '\033[4m'
 
 
-def scan_tree(tree_root, make_blob):
+def hash_tree(tree_root, make_blob):
     """They order in which files and directories are added to the list children might be important for the resulting
     hash value. This could be circumvented by making children a dictionary."""
     hash_subtree = {}
     content_subtree = {}
     for obj in os.scandir(tree_root):
         if obj.is_dir():
-            scan = scan_tree(obj.path, make_blob)
+            scan = hash_tree(obj.path, make_blob)
             hash_subtree[obj.name] = scan['hash']
             content_subtree[obj.name] = scan
         else:
@@ -98,7 +98,8 @@ def compare_trees(a_tree, b_tree, table, level=0):
 
     return table
 
-
+# TODO: Move print_table function into the Table class
+# TODO: Make colors static members of the Table class as well
 def print_table(table):
     indentation = ["".join([" " for _ in range(ind)]) for ind in range(table.max_name_column_width+1)]
 
@@ -124,9 +125,9 @@ if __name__ == '__main__':
                         help='The root of the second file tree')
     args = parser.parse_args()
 
-    atree = scan_tree(args.atree, mkblob.size_only)
+    atree = hash_tree(args.atree, mkblob.size_only)
     # print(ahash[0])
-    btree = scan_tree(args.btree, mkblob.size_only)
+    btree = hash_tree(args.btree, mkblob.size_only)
     # print(bhash[0])
 
     if atree['hash'] == btree['hash']:
